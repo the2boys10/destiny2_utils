@@ -1,7 +1,9 @@
 import csv
-from functools import cmp_to_key
 import csv
+from typing import List
 
+JUNK = 'junk'
+KEEP = 'keep'
 
 class Armor:
 
@@ -25,195 +27,150 @@ class Armor:
 
     def __init__(self, hash, name, tier, type_, equippable, mobility, resilience, recovery, discipline, intellect,
                  strength, total, identifier, notes, tag):
-        # self.identifier = int(identifier)
-        if equippable == 'Hunter':
-            self.calculated_score = (int(mobility) * 0.75) + (int(recovery) * 0.1) + (int(resilience) * 0.05) + (
-                int(strength) * 0.05) + (int(discipline) * 0.025) + (int(intellect) * 0.025)
-        elif equippable == 'Titan':
-            self.calculated_score = (int(mobility) * 0.2) + (int(recovery) * 0.05) + (int(resilience) * 0.65) + (
-                int(strength) * 0.05) + (int(discipline) * 0.025) + (int(intellect) * 0.025)
-        else:
-            self.calculated_score = (int(mobility) * 0.05) + (int(recovery) * 0.65) + (int(resilience) * 0.025) + (
-                int(strength) * 0.05) + (int(discipline) * 0.2) + (int(intellect) * 0.025)
         self.hash = hash
         self.identifier = int(identifier[3:len(identifier) - 3])
-        self.tag = 'junk'
+        self.combination_fail = 0
+        self.failed_round = False
+        self.tag = KEEP
         self.notes = notes
         self.name = name
         self.tier = tier
         self.type_ = type_
         self.equippable = equippable
         self.mobility = int(mobility)
-        self.above_twenty = 0
-        if self.mobility >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.resilience = int(resilience)
-        if self.resilience >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.recovery = int(recovery)
-        if self.recovery >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.discipline = int(discipline)
-        if self.discipline >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.intellect = int(intellect)
-        if self.intellect >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.strength = int(strength)
-        if self.strength >= 20:
-            self.above_twenty = self.above_twenty + 1
         self.total = int(total)
 
     def __repr__(self):
-        return f'name: {self.name}, tier: {self.tier}, type: {self.type_}, equippable: {self.equippable}, mobility: {self.mobility}, resilience: {self.resilience}, recovery: {self.recovery}, discipline: {self.discipline}, intellect: {self.intellect}, strength: {self.strength}, total: {self.total}, calculated_score: {self.calculated_score}, chosen: {self.tag}'
+        return f'name: {self.name}, tier: {self.tier}, type: {self.type_}, equippable: {self.equippable}, mobility: {self.mobility}, resilience: {self.resilience}, recovery: {self.recovery}, discipline: {self.discipline}, intellect: {self.intellect}, strength: {self.strength}, total: {self.total}, chosen: {self.tag}'
 
+def _remove_legendaries_less_than_threshold(items: List[Armor]) -> List[Armor]:
+    filtered_items = []
+    for item in items:
+        if item.total < 60:
+            item.tag = JUNK
+            continue
+        filtered_items.append(item)
+    return filtered_items
 
-class values:
+def _set_all_items_to_tag(items: List[Armor], tag: str):
+    for item in items:
+        item.tag = tag
 
-    sort_one = 'mobility'
-    sort_two = 'resilience'
+def _is_better_in_all_stats(item_1: List[Armor], item_2: List[Armor], stats: List[str]):
+        stat_counter = 0
+        for stat in stats:
+            if item_1.__dict__[stat] > item_2.__dict__[stat]:
+                stat_counter += 1
+        if stat_counter == len(stats):
+            return True
+        return False
 
+def _filter_keep_items(items: List[Armor]) -> List[Armor]:
+    filtered_items = []
+    for item in items:
+        if item.tag == KEEP:
+            filtered_items.append(item)
+    return filtered_items
 
-def compare(a, b):
-    value_1 = {'property1': None, 'property2': None}
-    value_2 = {'property1': None, 'property2': None}
-    if values.sort_one == 'mobility':
-        value_1['property1'] = a.mobility
-        value_2['property1'] = b.mobility
-    elif values.sort_one == 'resilience':
-        value_1['property1'] = a.resilience
-        value_2['property1'] = b.resilience
-    elif values.sort_one == 'recovery':
-        value_1['property1'] = a.recovery
-        value_2['property1'] = b.recovery
-    elif values.sort_one == 'discipline':
-        value_1['property1'] = a.discipline
-        value_2['property1'] = b.discipline
-    elif values.sort_one == 'intellect':
-        value_1['property1'] = a.intellect
-        value_2['property1'] = b.intellect
-    else:
-        value_1['property1'] = a.strength
-        value_2['property1'] = b.strength
+def _filter_items_which_have_been_superseeded(items: List[Armor], stats: List[str]) -> List:
+    _set_all_items_to_tag(items=items, tag=KEEP)
+    for i in range(len(items)):
+        for j in range(i+1, len(items)):
+            if items[j].tag == JUNK:
+                continue
+            if _is_better_in_all_stats(item_1=items[i], item_2=items[j], stats=stats):
+                items[j].tag == JUNK
+    return _filter_keep_items(items=items)
 
-    if values.sort_two == 'mobility':
-        value_1['property2'] = a.mobility
-        value_2['property2'] = b.mobility
-    elif values.sort_two == 'resilience':
-        value_1['property2'] = a.resilience
-        value_2['property2'] = b.resilience
-    elif values.sort_two == 'recovery':
-        value_1['property2'] = a.recovery
-        value_2['property2'] = b.recovery
-    elif values.sort_two == 'discipline':
-        value_1['property2'] = a.discipline
-        value_2['property2'] = b.discipline
-    elif values.sort_two == 'intellect':
-        value_1['property2'] = a.intellect
-        value_2['property2'] = b.intellect
-    else:
-        value_1['property2'] = a.strength
-        value_2['property2'] = b.strength
+def _create_powerset_2_from_list(items: List[str]) -> List[List[str]]:
+    stat_combinations = []
+    for i in range(len(items)):
+        for j in range(i+1, len(items)):
+            stat_combinations.append([items[i], items[j]])
+    return stat_combinations
 
-    if value_1['property1'] == value_2['property1']:
-        if value_1['property2'] == value_2['property2']:
-            return 0
-        elif value_1['property2'] < value_2['property2']:
-            return 1
-        else:
-            return -1
-    elif value_1['property1'] < value_2['property1']:
-        return 1
-    else:
-        return -1
+def _set_failed_round(items: List[Armor], value: List[str]) -> None:
+    for item in items:
+        item.failed_round = value
 
+def _set_combination_fail_for_powerset_2(items: List[Armor], stat_combination: List[str]) -> None:
+    _set_failed_round(items=items, value=False)
+    for i in range(len(items)):
+        if items[i].failed_round == True:
+            continue
+        for j in range(len(items)):
+            if items[j].failed_round == True or i==j:
+                continue
+            stat_counter = 0
+            for stat in stat_combination:
+                if items[i].__dict__[stat] > items[j].__dict__[stat]:
+                    stat_counter += 1
+            if stat_counter == len(stat_combination):
+                items[j].failed_round = True
+    for item in items:
+        if item.failed_round == True:
+            item.combination_fail += 1
 
-def add_top_two(class_):
-    if len(class_) == 0:
-        return
-    if len(class_) == 1:
-        class_[0].tag = 'keep'
-    else:
-        class_[0].tag = 'keep'
-        class_[1].tag = 'keep'
+def _filter_based_on_stat_powerset_2(items: List[Armor], stats: List[str]) -> List[Armor]:
+    stat_combinations = _create_powerset_2_from_list(items=stats)
+    for stat_combination in stat_combinations:
+        _set_combination_fail_for_powerset_2(items=items, stat_combination=stat_combination)
+    for item in items:
+        if item.combination_fail == len(stat_combinations):
+            item.tag = JUNK
+    return _filter_keep_items(items=items)
 
-
-def sort_in_order(class1, class2):
-    if class1.identifier == class2.identifier:
-        if class1.tag == 'keep':
-            if class2.tag == 'keep':
-                return 0
-            return -1
-        elif class2.tag == 'keep':
-            return 1
-    if class1.identifier > class2.identifier:
-        return -1
-    return 1
-
-
-def sort_armor(class_):
+def _sort_armor(items: List[Armor]):
     stats = ['mobility', 'resilience', 'recovery', 'discipline', 'intellect', 'strength']
-    for stat in stats:
-        for stat2 in stats:
-            if stat != stat2:
-                values.sort_one = stat
-                values.stat_two = stat2
-                class_ = sorted(class_, key=cmp_to_key(compare))
-                add_top_two(class_)
+    filtered_items = _remove_legendaries_less_than_threshold(items=items)
+    filtered_items = _filter_items_which_have_been_superseeded(items=filtered_items, stats=stats)
+    filtered_items = _filter_based_on_stat_powerset_2(items=filtered_items, stats=stats)
 
-    class_ = sorted(class_, key=cmp_to_key(lambda item1, item2: item2.calculated_score - item1.calculated_score))
-    if len(class_) > 0:
-        class_[0].tag = 'keep'
-    for item in class_:
-        if item.above_twenty >= 1:
-            item.tag = 'keep'
-
-
-def sort_classes(class_):
-    helmet = list(filter(lambda x: (x.type_ == 'Helmet'), class_))
-    gauntlet = list(filter(lambda x: (x.type_ == 'Gauntlets'), class_))
-    chest_armor = list(filter(lambda x: (x.type_ == 'Chest Armor'), class_))
+def _sort_classes(items: List[Armor]):
+    helmet = list(filter(lambda x: (x.type_ == 'Helmet'), items))
+    gauntlet = list(filter(lambda x: (x.type_ == 'Gauntlets'), items))
+    chest_armor = list(filter(lambda x: (x.type_ == 'Chest Armor'), items))
     extra = list(
-        filter(lambda x: (x.type_ == 'Hunter Cloak' or x.type_ == 'Warlock Bond' or x.type_ == 'Titan Mark'), class_))
-    leg_armor = list(filter(lambda x: (x.type_ == 'Leg Armor'), class_))
-    sort_armor(helmet)
-    sort_armor(gauntlet)
-    sort_armor(chest_armor)
-    sort_armor(extra)
-    sort_armor(leg_armor)
+        filter(lambda x: (x.type_ == 'Hunter Cloak' or x.type_ == 'Warlock Bond' or x.type_ == 'Titan Mark'), items))
+    leg_armor = list(filter(lambda x: (x.type_ == 'Leg Armor'), items))
+    armors = [helmet, gauntlet, chest_armor, extra, leg_armor]
+    for armor in armors:
+        _sort_armor(items=armor)
 
 
-def sort_items(list_of_armor):
+def _sort_items(list_of_armor: List[Armor]):
     hunter = list(filter(lambda x: (x.equippable == 'Hunter'), list_of_armor))
     warlock = list(filter(lambda x: (x.equippable == 'Warlock'), list_of_armor))
     titan = list(filter(lambda x: (x.equippable == 'Titan'), list_of_armor))
-    sort_classes(hunter)
-    sort_classes(warlock)
-    sort_classes(titan)
+    _sort_classes(items=hunter)
+    _sort_classes(items=warlock)
+    _sort_classes(items=titan)
 
 
-items = []
-
-with open('destinyArmor.csv', newline='') as csvfile:
-    spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
-    skip = True
-    for row in spamreader:
-        if skip:
-            skip = False
-        else:
+def _filter_armor():
+    items = []
+    with open('destinyArmor.csv', newline='') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        skip = True
+        for row in spamreader:
+            if skip:
+                skip = False
+                continue
             items.append(
-                Armor(row[1], row[0], row[4], row[5], row[7], row[27], row[28], row[29], row[30], row[31], row[32],
-                      row[33], row[2], row[36], row[3]))
-items3 = list(filter(lambda x: (x.tier == 'Rare'), items))
-items4 = list(filter(lambda x: (x.tier == 'Exotic'), items))
-for item in items4:
-    item.tag = 'keep'
-items2 = list(filter(lambda x: (x.tier != 'Exotic' and x.tier != 'Rare'), items))
-sort_items(items2)
-items2 = items2 + items3 + items4
-# items2 = list(filter(lambda x: x.tag == 'keep', items2))
-with open('output.csv', mode='w', newline='') as employee_file:
-    employee_writer = csv.writer(employee_file)
-    employee_writer.writerow(['Name', 'Hash', 'Id', 'Tag', 'Notes'])
-    for item in items2:
-        employee_writer.writerow([item.name, item.hash, "\"" + str(item.identifier) + "\"", item.tag, ""])
+                Armor(hash=row[1], name=row[0], tier=row[4], type_=row[5], equippable=row[7], mobility=row[24], resilience=row[25], recovery=row[26], discipline=row[27], intellect=row[29], strength=row[29],
+                        total=row[30], identifier=row[2], notes=row[33], tag=row[3]))
+    items_filtered = list(filter(lambda x: (x.tier == 'Legendary'), items))
+    _sort_items(list_of_armor=items_filtered)
+    with open('output.csv', mode='w', newline='') as employee_file:
+        employee_writer = csv.writer(employee_file)
+        employee_writer.writerow(['Name', 'Hash', 'Id', 'Tag', 'Notes'])
+        for item in items_filtered:
+            employee_writer.writerow([item.name, item.hash, "\"" + str(item.identifier) + "\"", item.tag, ""])
+
+if __name__== "__main__":
+    _filter_armor()
